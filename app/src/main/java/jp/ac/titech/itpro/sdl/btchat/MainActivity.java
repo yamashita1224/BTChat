@@ -35,6 +35,7 @@ import android.widget.Toast;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.lang.ref.WeakReference;
 import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -328,9 +329,41 @@ public class MainActivity extends AppCompatActivity {
 
     private void connect1(BluetoothDevice device) {
         Log.d(TAG, "connect1");
-        clientTask = new ClientTask();
+        clientTask = new ClientTask(this);
         clientTask.execute(device);
         setState(State.Connecting, device.getName());
+    }
+
+    private void connect2() {
+        Log.d(TAG, "connect2");
+        connectionProgress.setIndeterminate(true);
+    }
+
+    private void connect3(BluetoothSocket socket) {
+        Log.d(TAG, "connect3");
+        connectionProgress.setIndeterminate(false);
+        if (socket != null) {
+            try {
+                commThread = new CommThread(socket);
+                commThread.start();
+            }
+            catch (IOException e) {
+                e.printStackTrace();
+                try {
+                    socket.close();
+                }
+                catch (IOException e1) {
+                    e1.printStackTrace();
+                }
+                setState(State.Disconnected);
+            }
+        }
+        else {
+            Toast.makeText(MainActivity.this,
+                    R.string.toast_connection_failed, Toast.LENGTH_SHORT).show();
+            setState(State.Disconnected);
+        }
+        clientTask = null;
     }
 
     private void disconnect() {
@@ -351,9 +384,47 @@ public class MainActivity extends AppCompatActivity {
 
     private void startServer1() {
         Log.d(TAG, "startServer1");
-        serverTask = new ServerTask();
+        serverTask = new ServerTask(this);
         serverTask.execute(SERVER_TIMEOUT_SEC);
         setState(State.Waiting);
+    }
+
+    private void startServer2() {
+        Log.d(TAG, "startServer2");
+        connectionProgress.setIndeterminate(true);
+    }
+
+    private void startServer3(BluetoothSocket socket) {
+        Log.d(TAG, "startServer3");
+        connectionProgress.setIndeterminate(false);
+        if (socket != null) {
+            try {
+                commThread = new CommThread(socket);
+                commThread.start();
+            }
+            catch (IOException e) {
+                try {
+                    socket.close();
+                }
+                catch (IOException e1) {
+                    e1.printStackTrace();
+                }
+                setState(State.Disconnected);
+            }
+        }
+        else {
+            Toast.makeText(MainActivity.this, R.string.toast_connection_failed,
+                    Toast.LENGTH_SHORT).show();
+            setState(State.Disconnected);
+        }
+        serverTask = null;
+    }
+
+    private void cancelServer() {
+        Log.d(TAG, "cancelServer");
+        connectionProgress.setIndeterminate(false);
+        setState(State.Disconnected);
+        serverTask = null;
     }
 
     private void stopServer() {
@@ -362,13 +433,21 @@ public class MainActivity extends AppCompatActivity {
             serverTask.stop();
     }
 
-    private class ClientTask extends AsyncTask<BluetoothDevice, Void, BluetoothSocket> {
+    private static class ClientTask extends AsyncTask<BluetoothDevice, Void, BluetoothSocket> {
         private final static String TAG = "MainActivity.ClientTask";
+
+        private WeakReference<MainActivity> activityRef;
+
+        ClientTask(MainActivity activity) {
+            activityRef = new WeakReference<>(activity);
+        }
 
         @Override
         protected void onPreExecute() {
             Log.d(TAG, "onPreExecute");
-            connectionProgress.setIndeterminate(true);
+            MainActivity activity = activityRef.get();
+            if (activity != null)
+                activity.connect2();
         }
 
         @Override
@@ -397,40 +476,32 @@ public class MainActivity extends AppCompatActivity {
         @Override
         protected void onPostExecute(BluetoothSocket socket) {
             Log.d(TAG, "onPostExecute");
-            connectionProgress.setIndeterminate(false);
-            if (socket != null) {
-                try {
-                    commThread = new CommThread(socket);
-                    commThread.start();
-                }
-                catch (IOException e) {
-                    e.printStackTrace();
-                    try {
-                        socket.close();
-                    }
-                    catch (IOException e1) {
-                        e1.printStackTrace();
-                    }
-                    setState(State.Disconnected);
-                }
-            }
-            else {
-                Toast.makeText(MainActivity.this,
-                        R.string.toast_connection_failed, Toast.LENGTH_SHORT).show();
-                setState(State.Disconnected);
-            }
-            clientTask = null;
+            MainActivity activity = activityRef.get();
+            if (activity != null)
+                activity.connect3(socket);
         }
     }
 
-    private class ServerTask extends AsyncTask<Integer, Void, BluetoothSocket> {
+    private static class ServerTask extends AsyncTask<Integer, Void, BluetoothSocket> {
         private final static String TAG = "MainActivity.ServerTask";
         private BluetoothServerSocket serverSocket;
+        private WeakReference<MainActivity> activityRef;
+        private BluetoothAdapter btAdapter;
+        private String devName;
+
+        ServerTask(MainActivity activity) {
+            activityRef = new WeakReference<>(activity);
+        }
 
         @Override
         protected void onPreExecute() {
             Log.d(TAG, "onPreExecute");
-            connectionProgress.setIndeterminate(true);
+            MainActivity activity = activityRef.get();
+            if (activity != null) {
+                btAdapter = activity.btAdapter;
+                devName = activity.devName;
+                activity.startServer2();
+            }
         }
 
         @Override
@@ -438,7 +509,8 @@ public class MainActivity extends AppCompatActivity {
             Log.d(TAG, "doInBackground");
             BluetoothSocket socket;
             try {
-                serverSocket = btAdapter.listenUsingRfcommWithServiceRecord(devName, SPP_UUID);
+                serverSocket = btAdapter.
+                        listenUsingRfcommWithServiceRecord(devName, SPP_UUID);
                 socket = serverSocket.accept(params[0] * 1000);
             }
             catch (IOException e) {
@@ -459,36 +531,17 @@ public class MainActivity extends AppCompatActivity {
         @Override
         protected void onPostExecute(BluetoothSocket socket) {
             Log.d(TAG, "onPostExecute");
-            connectionProgress.setIndeterminate(false);
-            if (socket != null) {
-                try {
-                    commThread = new CommThread(socket);
-                    commThread.start();
-                }
-                catch (IOException e) {
-                    try {
-                        socket.close();
-                    }
-                    catch (IOException e1) {
-                        e1.printStackTrace();
-                    }
-                    setState(State.Disconnected);
-                }
-            }
-            else {
-                Toast.makeText(MainActivity.this, R.string.toast_connection_failed,
-                        Toast.LENGTH_SHORT).show();
-                setState(State.Disconnected);
-            }
-            serverTask = null;
+            MainActivity activity = activityRef.get();
+            if (activity != null)
+                activity.startServer3(socket);
         }
 
         @Override
         protected void onCancelled() {
             Log.d(TAG, "onCancelled");
-            connectionProgress.setIndeterminate(false);
-            setState(State.Disconnected);
-            serverTask = null;
+            MainActivity activity = activityRef.get();
+            if (activity != null)
+                activity.cancelServer();
         }
 
         void stop() {
