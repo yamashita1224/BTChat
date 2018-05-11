@@ -42,6 +42,7 @@ public class ChatMessageReader implements Closeable {
         long time = -1;
         String content = null;
         String sender = null;
+        int type = -1;
         reader.beginObject();
         while (reader.hasNext()) {
             switch (reader.nextName()) {
@@ -67,12 +68,15 @@ public class ChatMessageReader implements Closeable {
                 else
                     sender = reader.nextString();
                 break;
+            case ChatMessage.FIELD_TYPE:
+                type = reader.nextInt();
+                break;
             default:
                 reader.skipValue();
                 break;
             }
         }
         reader.endObject();
-        return new ChatMessage(seq, time, content, sender, ChatMessage.TYPE_STR);
+        return new ChatMessage(seq, time, content, sender, type);
     }
 }

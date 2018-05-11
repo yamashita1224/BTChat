@@ -50,6 +50,7 @@ public class ChatMessageWriter implements Closeable {
             writer.nullValue();
         else
             writer.value(message.sender);
+        writer.name(ChatMessage.FIELD_TYPE).value(message.type);
         writer.endObject();
     }
 }

@@ -301,6 +301,7 @@ public class MainActivity extends AppCompatActivity {
             // 再生する指示を送る
             long time = System.currentTimeMillis();
             ChatMessage message = new ChatMessage(message_seq, time, null, devName, ChatMessage.TYPE_SOUND);
+            Log.d(TAG, "send message type:"+message.type);
             commThread.send(message);
         }
     }
@@ -659,11 +660,14 @@ public class MainActivity extends AppCompatActivity {
                 break;
             case MESG_RECEIVED:
                 ChatMessage chatMessage = (ChatMessage) msg.obj;
+                Log.d(TAG, "message type int:"+chatMessage.type);
                 switch (chatMessage.type){
                     case ChatMessage.TYPE_STR:
+                        Log.d(TAG, "message type:str");
                         activity.showMessage(chatMessage);
                         break;
                     case ChatMessage.TYPE_SOUND:
+                        Log.d(TAG, "message type:sound");
                         activity.playSound();
                         break;
                 }
@@ -723,7 +727,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void playSound(){
-        sound_connected = soundPool.load(this, R.raw.nhk_doorbell, 1);
+        Log.d(TAG, "play sound");
+        soundPool.play(sound_connected, 1.0f, 1.0f, 0, 0, 1);
     }
 
     private void disconnect() {

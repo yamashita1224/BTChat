@@ -8,6 +8,7 @@ public class ChatMessage implements Parcelable {
     final static String FIELD_TIME = "time";
     final static String FIELD_CONTENT = "content";
     final static String FIELD_SENDER = "sender";
+    final static String FIELD_TYPE = "type";
     public final static int TYPE_STR = 1;
     public final static int TYPE_SOUND = 2;
 
@@ -30,6 +31,7 @@ public class ChatMessage implements Parcelable {
         time = in.readLong();
         content = in.readString();
         sender = in.readString();
+        type = in.readInt();
     }
 
     @Override
@@ -48,6 +50,7 @@ public class ChatMessage implements Parcelable {
         dest.writeLong(time);
         dest.writeString(content);
         dest.writeString(sender);
+        dest.writeInt(type);
     }
 
     public static final Parcelable.Creator<ChatMessage> CREATOR =
