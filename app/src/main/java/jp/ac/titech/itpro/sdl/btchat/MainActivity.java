@@ -7,6 +7,8 @@ import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.content.Intent;
 import android.graphics.Color;
+import android.media.AudioAttributes;
+import android.media.SoundPool;
 import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.Message;
@@ -86,6 +88,10 @@ public class MainActivity extends AppCompatActivity {
 
     private CommThread commThread;
 
+    private SoundPool soundPool;
+    private int sound_connected;
+    private int sound_disconnected;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -132,6 +138,20 @@ public class MainActivity extends AppCompatActivity {
         });
 
         setState(State.Initializing);
+
+        AudioAttributes attrs = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build();
+        soundPool = new SoundPool.Builder()
+                .setAudioAttributes(attrs)
+                .setMaxStreams(1)
+                .build();
+        // Sound Effects by NHK Creative Library
+        // https://www.nhk.or.jp/archives/creative/material/view.html?m=D0002011524_00000
+        sound_connected = soundPool.load(this, R.raw.nhk_doorbell, 1);
+        // https://www.nhk.or.jp/archives/creative/material/view.html?m=D0002070102_00000
+        sound_disconnected = soundPool.load(this, R.raw.nhk_woodblock2, 1);
 
         btAdapter = BluetoothAdapter.getDefaultAdapter();
         if (btAdapter != null)
@@ -643,6 +663,10 @@ public class MainActivity extends AppCompatActivity {
         this.state = state;
         switch (state) {
         case Initializing:
+            statusText.setText(R.string.conn_status_text_disconnected);
+            inputText.setEnabled(false);
+            sendButton.setEnabled(false);
+            break;
         case Disconnected:
             statusText.setText(R.string.conn_status_text_disconnected);
             inputText.setEnabled(false);
@@ -657,6 +681,7 @@ public class MainActivity extends AppCompatActivity {
             statusText.setText(getString(R.string.conn_status_text_connected_to, arg));
             inputText.setEnabled(true);
             sendButton.setEnabled(true);
+            soundPool.play(sound_connected, 1.0f, 1.0f, 0, 0, 1);
             break;
         case Waiting:
             statusText.setText(R.string.conn_status_text_waiting_for_connection);
@@ -680,5 +705,6 @@ public class MainActivity extends AppCompatActivity {
             commThread = null;
         }
         setState(State.Disconnected);
+        soundPool.play(sound_disconnected, 1.0f, 1.0f, 0, 0, 1);
     }
 }
