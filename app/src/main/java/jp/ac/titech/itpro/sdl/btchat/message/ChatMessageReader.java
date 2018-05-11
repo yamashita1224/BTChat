@@ -73,6 +73,6 @@ public class ChatMessageReader implements Closeable {
             }
         }
         reader.endObject();
-        return new ChatMessage(seq, time, content, sender);
+        return new ChatMessage(seq, time, content, sender, ChatMessage.TYPE_STR);
     }
 }

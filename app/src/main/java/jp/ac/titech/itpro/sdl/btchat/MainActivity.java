@@ -56,6 +56,7 @@ public class MainActivity extends AppCompatActivity {
     private ListView chatLogView;
     private EditText inputText;
     private Button sendButton;
+    private Button soundButton;
 
     private ArrayList<ChatMessage> chatLog;
     private ArrayAdapter<ChatMessage> chatLogAdapter;
@@ -104,6 +105,7 @@ public class MainActivity extends AppCompatActivity {
         connectionProgress = findViewById(R.id.connection_progress);
         inputText = findViewById(R.id.input_text);
         sendButton = findViewById(R.id.send_button);
+        soundButton = findViewById(R.id.sound_button);
         chatLogView = findViewById(R.id.chat_log_view);
         chatLogAdapter = new ArrayAdapter<ChatMessage>(this, 0, chatLog) {
             @Override
@@ -284,12 +286,22 @@ public class MainActivity extends AppCompatActivity {
             }
             message_seq++;
             long time = System.currentTimeMillis();
-            ChatMessage message = new ChatMessage(message_seq, time, content, devName);
+            ChatMessage message = new ChatMessage(message_seq, time, content, devName, ChatMessage.TYPE_STR);
             commThread.send(message);
             chatLogAdapter.add(message);
             chatLogAdapter.notifyDataSetChanged();
             chatLogView.smoothScrollToPosition(chatLog.size());
             inputText.getEditableText().clear();
+        }
+    }
+
+    public void onClickSoundButton(View v) {
+        Log.d(TAG, "onClickSoundButton");
+        if(commThread != null) {
+            // 再生する指示を送る
+            long time = System.currentTimeMillis();
+            ChatMessage message = new ChatMessage(message_seq, time, null, devName, ChatMessage.TYPE_SOUND);
+            commThread.send(message);
         }
     }
 
@@ -604,6 +616,7 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
+
         void close() {
             Log.d(TAG, "close");
             try {
@@ -645,7 +658,15 @@ public class MainActivity extends AppCompatActivity {
                 activity.setState(State.Disconnected);
                 break;
             case MESG_RECEIVED:
-                activity.showMessage((ChatMessage) msg.obj);
+                ChatMessage chatMessage = (ChatMessage) msg.obj;
+                switch (chatMessage.type){
+                    case ChatMessage.TYPE_STR:
+                        activity.showMessage(chatMessage);
+                        break;
+                    case ChatMessage.TYPE_SOUND:
+                        activity.playSound();
+                        break;
+                }
                 break;
             }
         }
@@ -664,27 +685,32 @@ public class MainActivity extends AppCompatActivity {
             statusText.setText(R.string.conn_status_text_disconnected);
             inputText.setEnabled(false);
             sendButton.setEnabled(false);
+            soundButton.setEnabled(false);
             break;
         case Disconnected:
             statusText.setText(R.string.conn_status_text_disconnected);
             inputText.setEnabled(false);
             sendButton.setEnabled(false);
+            soundButton.setEnabled(false);
             break;
         case Connecting:
             statusText.setText(getString(R.string.conn_status_text_connecting_to, arg));
             inputText.setEnabled(false);
             sendButton.setEnabled(false);
+            soundButton.setEnabled(false);
             break;
         case Connected:
             statusText.setText(getString(R.string.conn_status_text_connected_to, arg));
             inputText.setEnabled(true);
             sendButton.setEnabled(true);
+            soundButton.setEnabled(true);
             soundPool.play(sound_connected, 1.0f, 1.0f, 0, 0, 1);
             break;
         case Waiting:
             statusText.setText(R.string.conn_status_text_waiting_for_connection);
             inputText.setEnabled(false);
             sendButton.setEnabled(false);
+            soundButton.setEnabled(false);
             break;
         }
         invalidateOptionsMenu();
@@ -694,6 +720,10 @@ public class MainActivity extends AppCompatActivity {
         chatLogAdapter.add(message);
         chatLogAdapter.notifyDataSetChanged();
         chatLogView.smoothScrollToPosition(chatLogAdapter.getCount());
+    }
+
+    private void playSound(){
+        sound_connected = soundPool.load(this, R.raw.nhk_doorbell, 1);
     }
 
     private void disconnect() {
