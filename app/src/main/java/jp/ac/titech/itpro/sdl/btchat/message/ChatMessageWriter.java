@@ -11,8 +11,6 @@ public class ChatMessageWriter implements Closeable {
     private final JsonWriter writer;
 
     public ChatMessageWriter(JsonWriter writer) {
-        if (writer == null)
-            throw new NullPointerException("writer is null");
         this.writer = writer;
     }
 

@@ -12,8 +12,6 @@ public class ChatMessageReader implements Closeable {
     private final JsonReader reader;
 
     public ChatMessageReader(JsonReader reader) {
-        if (reader == null)
-            throw new NullPointerException("reader is null");
         this.reader = reader;
     }
 
@@ -24,6 +22,7 @@ public class ChatMessageReader implements Closeable {
     }
 
     public boolean hasNext() throws IOException {
+        Log.d(TAG, "hasNext");
         return reader.hasNext();
     }
 

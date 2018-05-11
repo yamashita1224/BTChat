@@ -19,6 +19,8 @@
     <string name="menu_scan_start_title">Scan</string>
     <string name="menu_scan_stop_title">Stop</string>
 
+    <string name="format_dev_name">%1$s %2$s</string>
+
     <string name="about_dialog_title">About BTChat</string>
     <string name="about_dialog_content">Simple Bluetooth chat application</string>
     <string name="alert_connection_confirmation">Do you really want to connect to this device?</string>

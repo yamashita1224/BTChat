@@ -256,38 +256,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void setState(State state) {
-        setState(state, null);
-    }
-
-    private void setState(State state, String arg) {
-        this.state = state;
-        switch (state) {
-        case Initializing:
-        case Disconnected:
-            statusText.setText(R.string.conn_status_text_disconnected);
-            inputText.setEnabled(false);
-            sendButton.setEnabled(false);
-            break;
-        case Connecting:
-            statusText.setText(getString(R.string.conn_status_text_connecting_to, arg));
-            inputText.setEnabled(false);
-            sendButton.setEnabled(false);
-            break;
-        case Connected:
-            statusText.setText(getString(R.string.conn_status_text_connected_to, arg));
-            inputText.setEnabled(true);
-            sendButton.setEnabled(true);
-            break;
-        case Waiting:
-            statusText.setText(R.string.conn_status_text_waiting_for_connection);
-            inputText.setEnabled(false);
-            sendButton.setEnabled(false);
-            break;
-        }
-        invalidateOptionsMenu();
-    }
-
     public void onClickSendButton(View v) {
         Log.d(TAG, "onClickSendButton");
         if (commThread != null) {
@@ -322,6 +290,9 @@ public class MainActivity extends AppCompatActivity {
         setState(State.Disconnected);
     }
 
+
+    // Client-Side
+
     private void connect() {
         Log.d(TAG, "connect");
         startActivityForResult(new Intent(this, BTScanActivity.class), REQCODE_GET_DEVICE);
@@ -344,7 +315,7 @@ public class MainActivity extends AppCompatActivity {
         connectionProgress.setIndeterminate(false);
         if (socket != null) {
             try {
-                commThread = new CommThread(socket);
+                commThread = new CommThread(socket, commHandler);
                 commThread.start();
             }
             catch (IOException e) {
@@ -364,73 +335,6 @@ public class MainActivity extends AppCompatActivity {
             setState(State.Disconnected);
         }
         clientTask = null;
-    }
-
-    private void disconnect() {
-        Log.d(TAG, "disconnect");
-        if (commThread != null) {
-            commThread.close();
-            commThread = null;
-        }
-        setState(State.Disconnected);
-    }
-
-    private void startServer() {
-        Log.d(TAG, "startServer");
-        Intent intent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
-        intent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, SERVER_TIMEOUT_SEC);
-        startActivityForResult(intent, REQCODE_DISCOVERABLE);
-    }
-
-    private void startServer1() {
-        Log.d(TAG, "startServer1");
-        serverTask = new ServerTask(this);
-        serverTask.execute(SERVER_TIMEOUT_SEC);
-        setState(State.Waiting);
-    }
-
-    private void startServer2() {
-        Log.d(TAG, "startServer2");
-        connectionProgress.setIndeterminate(true);
-    }
-
-    private void startServer3(BluetoothSocket socket) {
-        Log.d(TAG, "startServer3");
-        connectionProgress.setIndeterminate(false);
-        if (socket != null) {
-            try {
-                commThread = new CommThread(socket);
-                commThread.start();
-            }
-            catch (IOException e) {
-                try {
-                    socket.close();
-                }
-                catch (IOException e1) {
-                    e1.printStackTrace();
-                }
-                setState(State.Disconnected);
-            }
-        }
-        else {
-            Toast.makeText(MainActivity.this, R.string.toast_connection_failed,
-                    Toast.LENGTH_SHORT).show();
-            setState(State.Disconnected);
-        }
-        serverTask = null;
-    }
-
-    private void cancelServer() {
-        Log.d(TAG, "cancelServer");
-        connectionProgress.setIndeterminate(false);
-        setState(State.Disconnected);
-        serverTask = null;
-    }
-
-    private void stopServer() {
-        Log.d(TAG, "stopServer");
-        if (serverTask != null)
-            serverTask.stop();
     }
 
     private static class ClientTask extends AsyncTask<BluetoothDevice, Void, BluetoothSocket> {
@@ -481,6 +385,67 @@ public class MainActivity extends AppCompatActivity {
                 activity.connect3(socket);
         }
     }
+
+    // Server-Side
+
+    private void startServer() {
+        Log.d(TAG, "startServer");
+        Intent intent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
+        intent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, SERVER_TIMEOUT_SEC);
+        startActivityForResult(intent, REQCODE_DISCOVERABLE);
+    }
+
+    private void startServer1() {
+        Log.d(TAG, "startServer1");
+        serverTask = new ServerTask(this);
+        serverTask.execute(SERVER_TIMEOUT_SEC);
+        setState(State.Waiting);
+    }
+
+    private void startServer2() {
+        Log.d(TAG, "startServer2");
+        connectionProgress.setIndeterminate(true);
+    }
+
+    private void startServer3(BluetoothSocket socket) {
+        Log.d(TAG, "startServer3");
+        connectionProgress.setIndeterminate(false);
+        if (socket != null) {
+            try {
+                commThread = new CommThread(socket, commHandler);
+                commThread.start();
+            }
+            catch (IOException e) {
+                try {
+                    socket.close();
+                }
+                catch (IOException e1) {
+                    e1.printStackTrace();
+                }
+                setState(State.Disconnected);
+            }
+        }
+        else {
+            Toast.makeText(MainActivity.this, R.string.toast_connection_failed,
+                    Toast.LENGTH_SHORT).show();
+            setState(State.Disconnected);
+        }
+        serverTask = null;
+    }
+
+    private void cancelServer() {
+        Log.d(TAG, "cancelServer");
+        connectionProgress.setIndeterminate(false);
+        setState(State.Disconnected);
+        serverTask = null;
+    }
+
+    private void stopServer() {
+        Log.d(TAG, "stopServer");
+        if (serverTask != null)
+            serverTask.stop();
+    }
+
 
     private static class ServerTask extends AsyncTask<Integer, Void, BluetoothSocket> {
         private final static String TAG = "MainActivity.ServerTask";
@@ -557,41 +522,17 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    private final static int MESG_STARTED = 1111;
-    private final static int MESG_RECEIVED = 2222;
-    private final static int MESG_FINISHED = 3333;
-
-    private Handler commHandler = new Handler(new Handler.Callback() {
-        @Override
-        public boolean handleMessage(Message msg) {
-            Log.d(TAG, "handleMessage");
-            switch (msg.what) {
-            case MESG_STARTED:
-                BluetoothDevice device = (BluetoothDevice) msg.obj;
-                setState(State.Connected, device.getName());
-                break;
-            case MESG_FINISHED:
-                Toast.makeText(MainActivity.this, R.string.toast_connection_closed,
-                        Toast.LENGTH_SHORT).show();
-                setState(State.Disconnected);
-                break;
-            case MESG_RECEIVED:
-                chatLogAdapter.add((ChatMessage) msg.obj);
-                chatLogAdapter.notifyDataSetChanged();
-                chatLogView.smoothScrollToPosition(chatLogAdapter.getCount());
-                break;
-            }
-            return false;
-        }
-    });
+    // Thread and Hander for Bidirectional Communication
 
     private class CommThread extends Thread {
         private final static String TAG = "CommThread";
         private final BluetoothSocket socket;
         private final ChatMessageReader reader;
         private final ChatMessageWriter writer;
+        private CommHandler handler;
+        private boolean writerClosed = false;
 
-        CommThread(BluetoothSocket socket) throws IOException {
+        CommThread(BluetoothSocket socket, CommHandler handler) throws IOException {
             if (!socket.isConnected())
                 throw new IOException("Socket is not connected");
             this.socket = socket;
@@ -599,19 +540,24 @@ public class MainActivity extends AppCompatActivity {
                     new InputStreamReader(socket.getInputStream(), "UTF-8")));
             writer = new ChatMessageWriter(new JsonWriter(
                     new OutputStreamWriter(socket.getOutputStream(), "UTF-8")));
+            this.handler = handler;
         }
 
         @Override
         public void run() {
             Log.d(TAG, "run");
-            commHandler.sendMessage(commHandler.obtainMessage(
-                    MESG_STARTED, socket.getRemoteDevice()));
+            handler.sendMessage(handler.obtainMessage(MESG_STARTED, socket.getRemoteDevice()));
             try {
                 writer.beginArray();
                 reader.beginArray();
-                while (reader.hasNext())
-                    commHandler.sendMessage(commHandler.obtainMessage(
-                            MESG_RECEIVED, reader.read()));
+                while (reader.hasNext()) {
+                    handler.sendMessage(handler.obtainMessage(MESG_RECEIVED, reader.read()));
+                }
+                reader.endArray();
+                if (!writerClosed) {
+                    writer.endArray();
+                    writer.flush();
+                }
             }
             catch (Exception e) {
                 e.printStackTrace();
@@ -626,10 +572,11 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
             }
-            commHandler.sendMessage(commHandler.obtainMessage(MESG_FINISHED));
+            handler.sendMessage(handler.obtainMessage(MESG_FINISHED));
         }
 
         void send(ChatMessage message) {
+            Log.d(TAG, "send");
             try {
                 writer.write(message);
                 writer.flush();
@@ -640,8 +587,11 @@ public class MainActivity extends AppCompatActivity {
         }
 
         void close() {
+            Log.d(TAG, "close");
             try {
-                socket.close();
+                writer.endArray();
+                writer.flush();
+                writerClosed = true;
             }
             catch (IOException e) {
                 e.printStackTrace();
@@ -649,5 +599,86 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private final static int MESG_STARTED = 1111;
+    private final static int MESG_RECEIVED = 2222;
+    private final static int MESG_FINISHED = 3333;
 
+    private static class CommHandler extends Handler {
+        private final static String TAG = "CommHandler";
+        WeakReference<MainActivity> activityRef;
+
+        CommHandler(MainActivity activity) {
+            activityRef = new WeakReference<>(activity);
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            Log.d(TAG, "handleMessage");
+            MainActivity activity = activityRef.get();
+            if (activity == null) return;
+            switch (msg.what) {
+            case MESG_STARTED:
+                BluetoothDevice device = (BluetoothDevice) msg.obj;
+                activity.setState(State.Connected, device.getName());
+                break;
+            case MESG_FINISHED:
+                Toast.makeText(activity, R.string.toast_connection_closed,
+                        Toast.LENGTH_SHORT).show();
+                activity.setState(State.Disconnected);
+                break;
+            case MESG_RECEIVED:
+                activity.showMessage((ChatMessage)msg.obj);
+                break;
+            }
+        }
+    }
+
+    private CommHandler commHandler = new CommHandler(this);
+
+    private void setState(State state) {
+        setState(state, null);
+    }
+
+    private void setState(State state, String arg) {
+        this.state = state;
+        switch (state) {
+        case Initializing:
+        case Disconnected:
+            statusText.setText(R.string.conn_status_text_disconnected);
+            inputText.setEnabled(false);
+            sendButton.setEnabled(false);
+            break;
+        case Connecting:
+            statusText.setText(getString(R.string.conn_status_text_connecting_to, arg));
+            inputText.setEnabled(false);
+            sendButton.setEnabled(false);
+            break;
+        case Connected:
+            statusText.setText(getString(R.string.conn_status_text_connected_to, arg));
+            inputText.setEnabled(true);
+            sendButton.setEnabled(true);
+            break;
+        case Waiting:
+            statusText.setText(R.string.conn_status_text_waiting_for_connection);
+            inputText.setEnabled(false);
+            sendButton.setEnabled(false);
+            break;
+        }
+        invalidateOptionsMenu();
+    }
+
+    private void showMessage(ChatMessage message) {
+        chatLogAdapter.add(message);
+        chatLogAdapter.notifyDataSetChanged();
+        chatLogView.smoothScrollToPosition(chatLogAdapter.getCount());
+    }
+
+    private void disconnect() {
+        Log.d(TAG, "disconnect");
+        if (commThread != null) {
+            commThread.close();
+            commThread = null;
+        }
+        setState(State.Disconnected);
+    }
 }

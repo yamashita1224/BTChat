@@ -82,17 +82,20 @@ public class BTScanActivity extends AppCompatActivity {
         devListAdapter = new ArrayAdapter<BluetoothDevice>(this, 0, devList) {
             @Override
             public @NonNull
-            View getView(int pos,
-                         @Nullable View view, @NonNull ViewGroup parent) {
-                if (view == null)
+            View getView(int pos, @Nullable View view, @NonNull ViewGroup parent) {
+                if (view == null) {
                     view = LayoutInflater.from(getContext())
                             .inflate(android.R.layout.simple_list_item_2, parent, false);
+                }
                 TextView nameView = view.findViewById(android.R.id.text1);
                 TextView addrView = view.findViewById(android.R.id.text2);
-                BluetoothDevice dev = getItem(pos);
-                assert dev != null;
-                nameView.setText(dev.getName());
-                addrView.setText(dev.getAddress());
+                BluetoothDevice device = getItem(pos);
+                if (device != null) {
+                    nameView.setText(getString(R.string.format_dev_name,
+                                devName(device.getName()),
+                                device.getBondState() == BluetoothDevice.BOND_BONDED ? "*" : " "));
+                    addrView.setText(device.getAddress());
+                }
                 return view;
             }
         };
@@ -102,7 +105,7 @@ public class BTScanActivity extends AppCompatActivity {
             public void onItemClick(AdapterView<?> parent, View view, int pos, long id) {
                 final BluetoothDevice dev = (BluetoothDevice) parent.getItemAtPosition(pos);
                 new AlertDialog.Builder(BTScanActivity.this)
-                        .setTitle(dev.getName())
+                        .setTitle(devName(dev.getName()))
                         .setMessage(R.string.alert_connection_confirmation)
                         .setCancelable(false)
                         .setPositiveButton(android.R.string.yes,
@@ -306,5 +309,9 @@ public class BTScanActivity extends AppCompatActivity {
     private void stopScan() {
         Log.d(TAG, "stopScan");
         btAdapter.cancelDiscovery();
+    }
+
+    private String devName(String name) {
+        return name == null ? "(no name)" : name;
     }
 }
