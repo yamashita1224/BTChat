@@ -249,7 +249,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public void onActivityResult(int reqCode, int resCode, Intent data) {
-        Log.d(TAG, "onActivityResult");
+        Log.d(TAG, "onActivityResult : reqCode=" + reqCode + " resCode=" + resCode);
         switch (reqCode) {
         case REQCODE_ENABLE_BT:
             if (resCode == Activity.RESULT_OK)
@@ -262,13 +262,11 @@ public class MainActivity extends AppCompatActivity {
             break;
         case REQCODE_GET_DEVICE:
             if (resCode == Activity.RESULT_OK)
-                connect1((BluetoothDevice) data.getParcelableExtra(
-                        BluetoothDevice.EXTRA_DEVICE));
+                connect1((BluetoothDevice) data.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE));
             else
                 setState(State.Disconnected);
             break;
         case REQCODE_DISCOVERABLE:
-            Log.d(TAG, "resCode=" + Activity.RESULT_CANCELED);
             if (resCode != Activity.RESULT_CANCELED)
                 startServer1();
             else
@@ -647,7 +645,7 @@ public class MainActivity extends AppCompatActivity {
                 activity.setState(State.Disconnected);
                 break;
             case MESG_RECEIVED:
-                activity.showMessage((ChatMessage)msg.obj);
+                activity.showMessage((ChatMessage) msg.obj);
                 break;
             }
         }
